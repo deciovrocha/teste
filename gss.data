@@ -1,0 +1,157 @@
+# Para criar a base, fui direto na base geral que eles possuem para não ter o trabalho de selecionar ano a ano. Pesou bastante o compoutador mas rodou.
+#A base com todos os anos do GSS fica então como view ( GSS7218_R3).
+Abaixo rodei primeiramente o modelo selecionando as variáveis de trabalho, filtrando os anos de estudo e modificando os nomes das variáveis. 
+
+GSS <- GSS7218_R3 %>%
+select(YEAR,ID,VOTE76,VOTE80, VOTE84,VOTE88, MEMUNION, EDUC, RINCOME, AGE,GENDER1, RACE,MARITAL,
+SPWRKSTA) %>%
+filter(YEAR %in% c(1978:1990)) %>%
+mutate(FAIXA_ETARIA = case_when(
+AGE %in% 30:59 ~ "30-59",
+AGE <29 ~ "29-",
+AGE > 59 ~ "60+"
+),
+GENERO_CAT = ifelse(GENDER1 == 1, "HOMEM", "MULHER"),
+EDUCACAO_CAT = case_when(
+EDUC == 0 ~ "NENHUMA",
+EDUC %in% 1:4 ~ "ALFABETIZADO",
+EDUC %in% 5:8 ~ "FUND COMPLETO",
+EDUC %in% 9:12 ~ "ENSINO MEDIO",
+EDUC %in% 13:16 ~ "SUPERIOR",
+EDUC %in% 17:20 ~ "POS GRADUACAO"
+),
+EDUCACAO_CAT = factor(EDUCACAO_CAT,
+labels = c("NENHUMA", "ALFABETIZADO", "FUND COMPLETO",
+"ENSINO MEDIO", "SUPERIOR", "POS GRADUACAO")),
+RACA_CAT = case_when(
+RACE == 3 ~ "OUTROS",
+RACE == 1 ~ "BRANCO",
+RACE == 2 ~ "NEGRO"
+),
+ESTADO_CIVIL_CAT = case_when(
+MARITAL == 1 ~ "CASADO",
+MARITAL == 2 ~ "VIUVO",
+MARITAL == 3 ~ "DIVORCIADO",
+MARITAL == 4 ~ "SEPARADO",
+MARITAL == 5 ~ "SOLTEIRO",
+MARITAL == 9 ~ "NAO RESPONDEU"
+),
+ESTADO_CIVIL_CAT = factor(ESTADO_CIVIL_CAT,
+labels = c("CASADO", "VIUVO", "DIVORCIADO",
+"SEPARADO", "SOLTEIRO"),
+levels = c(1, 2, 3, 4, 5)),
+EMPREGO_CAT = case_when(
+SPWRKSTA == 1 ~ "TRABALHA TEMPO INTEGRAL",
+SPWRKSTA == 2 ~"TRABALHA MEIO EXPEDIENTE",
+SPWRKSTA %in% 3:9 ~ "OUTROS"
+),
+FILIADO_CAT = ifelse(MEMUNION == 1, "FILIADO", "NAO FILIADO"),
+FILIADO_CAT = factor(FILIADO_CAT,
+labels = c("NAO FILIADO", "FILIADO")),
+VOTO1 = case_when(
+VOTE76 == 1 ~ "VOTOU",
+VOTE76 == 2 ~ "NAO VOTOU",
+VOTE76 %in% 3:4 ~ "OUTROS"),
+VOTO2 = case_when(
+VOTE80 == 1 ~ "VOTOU",
+VOTE80 == 2 ~ "NAO VOTOU",
+VOTE80 %in% 3:4 ~ "OUTROS"),
+VOTO3 = case_when(
+VOTE84 == 1 ~ "VOTOU",
+VOTE84 == 2 ~ "NAO VOTOU",
+VOTE84 %in% 3:4 ~ "OUTROS"),
+VOTO4 = case_when(
+VOTE88 == 1 ~ "VOTOU",
+VOTE88 == 2 ~ "NAO VOTOU",
+VOTE88 %in% 3:4 ~ "OUTROS"),
+VOTO = case_when(
+VOTO1 == "VOTOU" ~ "1",
+VOTO1 == "NAO VOTOU" ~ "0",
+VOTO1 %in% 3:4 ~ "NA",
+VOTO2 == "VOTOU" ~ "1",
+VOTO2 == "NAO VOTOU" ~ "0",
+VOTO2 %in% 3:4 ~ "NA",
+VOTO3 == "VOTOU" ~ "1",
+VOTO3 == "NAO VOTOU" ~ "0",
+VOTO3 %in% 3:4 ~ "NA",
+VOTO4 == "VOTOU" ~ "1",
+VOTO4 == "NAO VOTOU" ~ "0",
+VOTO4 %in% 3:4 ~ "NA"))
+
+#Como a variável voto existe para anos distintos, coloquei todos os anos que queria dentro da base e depois unifiquei numa variável final (VOTO) através de funções lógicas.
+#Após ter a base com a as variáveis necessárias, renomeei as variáveis para português
+
+GSS <- GSS %>%
+rename(RACA = RACE,
+ANO = YEAR,
+FILIACAO = MEMUNION,
+ESCOLARIDADE = EDUC,
+RENDA = RINCOME,
+IDADE = AGE,
+GENERO = GENDER1,
+ESTADO_CIVIL = MARITAL,
+STATUS_TRABALHO = SPWRKSTA) %>%
+mutate(VOTO = factor(VOTO))
+
+#A partir daí apenas limpei variáveis em que NAs davam problemas e com isso obtive 11238 observações. 
+
+GSS_LIMPO <- GSS %>%
+filter(!is.na(VOTO),
+!is.na(FILIACAO),
+!is.na(FILIADO_CAT),
+!is.na(GENERO_CAT),
+!is.na(IDADE),
+!is.na(ESTADO_CIVIL))
+
+
+A partir daí rodei o modelo abaixo
+
+modelo1 <- glm(formula = VOTO ~ FILIADO_CAT  + ESCOLARIDADE + RENDA + GENERO_CAT +
+           FAIXA_ETARIA + RACA_CAT + EMPREGO_CAT, family = binomial(link = "logit"),
+           data = GSS_LIMPO)
+
+summary(modelo1)
+
+Call:
+glm(formula = VOTO ~ FILIADO_CAT + ESCOLARIDADE + RENDA + GENERO_CAT + 
+    FAIXA_ETARIA + ESTADO_CIVIL + RACA_CAT + EMPREGO_CAT, family = binomial(link = "logit"), 
+    data = GSS_LIMPO)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-2.7687  -0.9778   0.5501   0.7771   1.9385  
+
+Coefficients: (1 not defined because of singularities)
+                                     Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                         -2.847139   0.231689 -12.289  < 2e-16 ***
+FILIADO_CATFILIADO                  -0.092203   0.100227  -0.920 0.357607    
+ESCOLARIDADE                         0.219405   0.014910  14.715  < 2e-16 ***
+RENDA                                0.006114   0.011949   0.512 0.608838    
+GENERO_CATMULHER                    -0.469107   0.183148  -2.561 0.010426 *  
+FAIXA_ETARIA30-59                    1.185540   0.091072  13.018  < 2e-16 ***
+FAIXA_ETARIA60+                      2.550412   0.183922  13.867  < 2e-16 ***
+ESTADO_CIVIL                               NA         NA      NA       NA    
+RACA_CATNEGRO                        0.001241   0.131523   0.009 0.992471    
+RACA_CATOUTROS                      -0.892048   0.229919  -3.880 0.000105 ***
+EMPREGO_CATTRABALHA MEIO EXPEDIENTE  0.359481   0.142505   2.523 0.011650 *  
+EMPREGO_CATTRABALHA TEMPO INTEGRAL   0.108652   0.086505   1.256 0.209110    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 4808.4  on 4124  degrees of freedom
+Residual deviance: 4262.0  on 4114  degrees of freedom
+  (7113 observations deleted due to missingness)
+AIC: 4284
+
+Number of Fisher Scoring iterations: 5
+
+#No modelo acima tive problema com a variável estado civil que não rodou. Portanto optei por não rodar os gráficos já que meu modelo não ficou completo como no artigo.
+
+#Para o pseudo R² utilizei o pacote ModEva (documentação em https://cran.r-project.org/web/packages/modEvA/modEvA.pdf )
+https://cran.r-project.org/web/packages/modEvA/modEvA.pdf
+$McFadden
+[1] 0.1136373
+
+logLik(modelo1)
